@@ -1,0 +1,93 @@
+<!--
+  Copyright 2011-2014 Marvell Semiconductor, Inc.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<module xmlns="http://www.kinoma.com/kpr/1">
+
+    <function id="newInstance" params="x, y">
+        <![CDATA[
+            return new Vector( x, y );
+        ]]>
+    </function>
+
+    <class id="Vector">
+        <field id="x"/>
+        <field id="y"/>
+    
+        <constructor params="x, y">
+            <![CDATA[
+                this.x = x || 0;
+                this.y = y || 0;
+            ]]>
+        </constructor>
+        <method id="equals" params="v">
+            <![CDATA[
+                return this === v || (this.x == v.x && this.y == v.y); 
+            ]]>
+        </method>
+        <method id="set" params="v">
+            <![CDATA[
+                this.x = v.x; 
+                this.y = v.y; 
+            ]]>
+        </method>
+        <method id="add" params="v">
+            <![CDATA[
+                this.x += v.x; 
+                this.y += v.y; 
+            ]]>
+        </method>
+        <method id="sub" params="v">
+            <![CDATA[
+                this.x -= v.x; 
+                this.y -= v.y; 
+            ]]>
+        </method>
+        <method id="dotProd" params="v">
+            <![CDATA[
+                return (this.x * v.x) + (this.y * v.y); 
+            ]]>
+        </method>
+        <method id="distance" params="v">
+            <![CDATA[
+                return Math.sqrt( (this.x - v.x) * (this.x - v.x) + (this.y - v.y) * (this.y - v.y) );
+            ]]>
+        </method>
+        <method id="angle" params="v">
+            <![CDATA[
+                return Math.atan2( this.x - v.x, this.y - v.y ) * 180 / Math.PI;
+            ]]>
+        </method>
+        <method id="length">
+            <![CDATA[
+                return Math.sqrt( (this.x * this.x) + (this.y * this.y) );
+            ]]>
+        </method>
+        <method id="scale" params="scale">
+            <![CDATA[
+                this.x *= scale; 
+                this.y *= scale; 
+            ]]>
+        </method>
+        <method id="normalize">
+            <![CDATA[
+                var l = this.length();
+                
+                this.x /= l;
+                this.y /= l;
+            ]]>
+        </method>
+    </class>
+    
+</module>

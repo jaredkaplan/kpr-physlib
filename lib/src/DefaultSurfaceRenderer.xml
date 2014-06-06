@@ -1,0 +1,159 @@
+<!--
+  Copyright 2011-2014 Marvell Semiconductor, Inc.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<module xmlns="http://www.kinoma.com/kpr/1">
+
+    <require id="Surface" path="Surface"/>
+
+    <variable id="instance"/>
+    
+    <variable id="TYPE" value="'default'"/>
+    
+    <variable id="PLAIN" value="'plain'" />
+    <variable id="CURVE" value="'curve'" />
+
+    <function id="getInstance">
+        <![CDATA[
+            if( instance == null )
+                instance = new DefaultSurfaceRenderer();
+                
+            return instance;
+        ]]>
+    </function>
+    
+    <class id="DefaultSurfaceConfiguration" like="Surface.SurfaceConfiguration">
+        <field id="pathMode" />
+        <field id="stroke" />
+        <field id="fill" />
+        <constructor params="pathMode, stroke, fill">
+            <![CDATA[
+                Surface.SurfaceConfiguration.call( this );
+            
+                this.pathMode = pathMode || PLAIN;
+                this.stroke = stroke;
+                this.fill = fill;
+            ]]>
+        </constructor>
+        <method id="load" params="data">
+            <![CDATA[
+                if( "pathMode" in data )
+                    this.pathMode = data.pathMode;
+                    
+                if( "stroke" in data )
+                    this.stroke = data.stroke;
+                    
+                if( "fill" in data )
+                    this.fill = data.fill;
+            ]]>
+        </method>
+    </class>
+
+    <class id="DefaultSurfaceRenderer" like="Surface.Renderer">
+        <method id="createDefaultConfiguration">
+            <![CDATA[
+                return new DefaultSurfaceConfiguration();
+            ]]>
+        </method>
+        <method id="getPointByIndex" params="pts, index">
+            <![CDATA[
+                index += pts.length; 
+                index = index % pts.length; 
+                
+                return pts[index]; 
+            ]]>
+        </method>
+        <method id="draw" params="ctx, scale, env, model, pts, config">
+	        <![CDATA[
+	            if( pts.length > 2 )
+	            {
+                    var pathMode = config.pathMode;
+                    var fill = config.fill;
+                    var stroke = config.stroke;
+            
+	                if( fill != null )
+	                {
+	                   if( "color" in fill )
+                           ctx.fillStyle = fill.color;
+                    }
+                        
+                    if( stroke != null )
+                    {
+	                    if( "width" in stroke )
+                            ctx.lineWidth = stroke.width; 
+
+                        if( "color" in stroke )
+                            ctx.strokeStyle = stroke.color;
+                    } 
+
+                    ctx.beginPath();
+                    ctx.moveTo( pts[0].position.x * scale, pts[0].position.y * scale );
+                    
+                    if( pathMode == CURVE )
+                    {
+                        for( var j = 0; j < pts.length; j++ )
+                        {
+					        var px, py, nx, ny, tx, ty, cx, cy; 
+					        var prevPointMass, currentPointMass, nextPointMass, nextNextPointMass;
+					        
+					        prevPointMass = this.getPointByIndex(pts, j - 1); 
+					        currentPointMass = pts[j]; 
+					        nextPointMass = this.getPointByIndex(pts,j + 1);   
+					        nextNextPointMass = this.getPointByIndex(pts,j + 2);   
+					        
+					        tx = nextPointMass.position.x; 
+					        ty = nextPointMass.position.y; 
+					        
+					        cx = currentPointMass.position.x; 
+					        cy = currentPointMass.position.y; 
+					
+					        px = cx * 0.5 + tx * 0.5; 
+					        py = cy * 0.5 + ty * 0.5; 
+					        
+					        nx = cx - prevPointMass.position.x + tx - nextNextPointMass.position.x;         
+					        ny = cy - prevPointMass.position.y + ty - nextNextPointMass.position.y; 
+					        
+					        px += nx * 0.16; 
+					        py += ny * 0.16; 
+					        
+					        px = px * scale; 
+					        py = py * scale; 
+					        
+					        tx = tx * scale; 
+					        ty = ty * scale; 
+					        
+					        ctx.bezierCurveTo( px, py, tx, ty, tx, ty );
+					    }
+                    }
+                    else
+                    {
+                       for( var j = 1; j < pts.length; j++ )
+                           ctx.lineTo( pts[j].x * scale, pts[j].y * scale);
+                    }
+                    
+				    ctx.closePath();
+				    
+				    if( fill != null )
+				       ctx.fill();
+				    
+				    if( stroke != null ) 
+				       ctx.stroke(); 
+               }
+	        ]]>
+        </method>
+    </class>
+    
+    <variable id="prototype" value="DefaultSurfaceRenderer.prototype" />
+
+</module>

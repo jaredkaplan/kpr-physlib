@@ -1,0 +1,73 @@
+<!--
+  Copyright 2011-2014 Marvell Semiconductor, Inc.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<module xmlns="http://www.kinoma.com/kpr/1">
+
+    <function id="newInstance" params="width, height">
+        <![CDATA[
+            return new Environment( width, height );
+        ]]>
+    </function>
+
+    <class id="Environment">
+        <field id="width"/>
+        <field id="height"/>
+        <field id="pointsVisible"/>
+        <field id="constraintsVisible"/>
+        <field id="surfacesVisible"/>
+        
+        <constructor params="width, height">
+            <![CDATA[
+                this.width = width;   
+                this.height = height;   
+                this.pointsVisible = true;   
+                this.constraintsVisible = true;   
+                this.surfacesVisible = true;   
+            ]]>
+        </constructor>
+        <method id="collision" params="position, previousPosition">
+            <![CDATA[
+                var collide = false; 
+            
+                if( position.x < 0 )
+                {
+                    position.x = 0; 
+                    collide = true; 
+                }
+                else if( position.x > this.width )
+                {
+                    position.x = this.width; 
+                    collide = true; 
+                }
+                
+                if( position.y < 0 )
+                {
+                    position.y = 0; 
+                    collide = true; 
+                }
+                else if( position.y > this.height )
+                {
+                    position.y = this.height; 
+                    collide = true; 
+                }
+                  
+                return collide; 
+            ]]>
+        </method>
+        
+        <method id="draw" params="ctx, scale"/>
+    </class>
+    
+</module>

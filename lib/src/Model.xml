@@ -1,0 +1,501 @@
+<!--
+  Copyright 2011-2014 Marvell Semiconductor, Inc.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<module xmlns="http://www.kinoma.com/kpr/1">
+
+    <require id="PointMass" path="PointMass"/>
+    <require id="Constraint" path="Constraint"/>
+    <require id="Surface" path="Surface"/>
+
+    <function id="newInstance" params="data">
+        <![CDATA[
+            return new Model( data );
+        ]]>
+    </function>
+
+    <class id="Model">
+        <field id="points"/>
+        <field id="constraints"/>
+        <field id="surfaces"/>
+        <field id="nextId"/>
+        <field id="anchor"/>
+        
+        <constructor params="data">
+            <![CDATA[
+                this.clear();
+                
+                if( data != null )
+                    this.load( data );
+            ]]>
+        </constructor>
+        <method id="clear">
+            <![CDATA[
+                this.points = new Array();
+                this.constraints = new Array();
+                this.surfaces = new Array();
+                this.nextId = 0;
+                this.anchor = null;
+            ]]>
+        </method>
+        <method id="contains" params="x, y">
+            <![CDATA[
+                return this.findSurface( x, y ) != null;
+            ]]>
+        </method>
+        <method id="intersects" params="pts">
+            <![CDATA[
+                return this.findIntersectingSurface( pts ) != null;
+            ]]>
+        </method>
+        <method id="offset" params="pt">
+            <![CDATA[
+                for( var j = 0; j < this.points.length; j++ )
+                    this.points[j].setPosition( this.points[j].x + pt.x, this.points[j].y + pt.y );
+            ]]>
+        </method>
+        <method id="setAnchor" params="anchor">
+            <![CDATA[
+                this.anchor = anchor;
+            ]]>
+        </method>
+        <method id="getAnchor" >
+            <![CDATA[
+                return this.anchor;
+            ]]>
+        </method>
+        <method id="findSurface" params="x, y">
+            <![CDATA[
+                var surface = null;
+            
+                for( var j = 0; j < this.surfaces.length; j++ )
+                {
+                    if( this.surfaces[j].contains( x, y ) ) {
+                        surface = this.surfaces[j];
+                        break;
+                    }
+                }
+            
+                return surface;
+            ]]>
+        </method>
+        <method id="findIntersectingSurface" params="pts">
+            <![CDATA[
+                var surface = null;
+
+                for( var j = 0; j < this.surfaces.length; j++ )
+                {
+                    if( this.surfaces[j].intersects( pts ) ) {
+                        surface = this.surfaces[j];
+                        break;
+                    }
+                }
+            
+                return surface;
+            ]]>
+        </method>
+        <method id="containsPointMass" params="pm">
+            <![CDATA[
+                var containedInList = false;
+            
+                for( var j = 0; j < this.points.length; j++ )
+                {
+                   if( this.points[j] == pm ) {
+                       containedInList = true;
+                       break;
+                   }
+                }
+                
+                return containedInList;
+            ]]>
+        </method>
+        <method id="getPointById" params="id">
+            <![CDATA[
+                var pt = null;
+            
+                for( var j = 0; j < this.points.length; j++ )
+                {
+                    if( this.points[j].id == id ) {
+                        pt = this.points[j];
+                        break;
+                    }
+                }
+                
+                return pt;
+            ]]>
+        </method>
+        <method id="addPoint" params="x, y, mass">
+            <![CDATA[
+                return this.addPointMass( PointMass.newInstance( x, y, mass ) );
+            ]]>
+        </method>
+        <method id="addPointMass" params="pm">
+            <![CDATA[
+                if( this.containsPointMass( pm ) == false ) {
+                    pm.id = this.nextId++;
+                    this.points.push( pm );
+                }
+                
+                return pm;
+            ]]>
+        </method>
+        <method id="removePoint" params="pm">
+            <![CDATA[
+                for( var j = 0; j < this.points.length; j++ )
+                {
+                    if( this.points[j] == pm ) 
+                    {
+                       // remove the point from the point list
+                       this.points.splice( j, 1 );
+                    
+	                    // if we removed the anchor then delete the anchor reference    
+	                    if( pm == this.anchor )
+	                        this.anchor = null;
+	                        
+                       break;
+                    }
+                }
+            
+                //
+                // iterate over the constraints and remove any constraint that contains
+                // the point mass that we are removing...
+                //
+                var newConstraints = new Array();
+                                
+                for( var j = 0; j < this.constraints.length; j++ )
+                {
+                    if( this.constraints[j].contains( pm ) == false )
+                        newConstraints.push( this.constraints[j] );
+                }
+                
+                this.constraints = newConstraints;
+                
+                //
+                // iterate over all of the model's surfaces and remove the point from
+                // the surface point list if needed...
+                //
+                for( var j = 0; j < this.surfaces.length; j++ )
+                    this.surfaces[j].removePoint( pm );
+            ]]>
+        </method>
+        <method id="addConstraint" params="c">
+            <![CDATA[
+                this.constraints.push( c );
+            ]]>
+        </method>
+        <method id="removeConstraint" params="c">
+            <![CDATA[
+                for( var j = 0; j < this.constraints.length; j++ )
+                {
+                   if( this.constraints[j] == c ) {
+                       this.constraints.splice( j, 1 );
+                       break;
+                   }
+                }
+            ]]>
+        </method>
+        <method id="addSurface" params="surface">
+            <![CDATA[
+                this.surfaces.push( surface );
+            ]]>
+        </method>
+        <method id="removeSurface" params="surface">
+            <![CDATA[
+                for( var j = 0; j < this.surfaces.length; j++ )
+                {
+                   if( this.surfaces[j] == r ) {
+                       this.surfaces.splice( j, 1 );
+                       break;
+                   }
+                }
+            ]]>
+        </method>
+        <method id="update" params="dt">
+            <![CDATA[
+                for( var j = 0; j < this.points.length; j++ )
+                    this.points[j].update( dt );
+            ]]>
+        </method>
+        <method id="updateConstraints" params="pm">
+            <![CDATA[
+                for( var j = 0; j < this.constraints.length; j++ )
+                {
+                    if( this.constraints[j].contains( pm ) )
+                        this.constraints[j].update();
+                }
+            ]]>
+        </method>
+        <method id="constrain" params="env">
+            <![CDATA[
+                if( env != null )
+                {
+			        for( var j = 0; j < 4; j++)
+			        {
+			            for( var i = 0; i < this.points.length; i++ )
+			            {
+			                if( env.collision( this.points[i].position, this.points[i].previousPosition ) == true )
+			                    this.points[i].friction = 0.75;
+				            else 
+				                this.points[i].friction = 0.01; 
+			            }
+			            
+		                for( var j = 0; j < this.constraints.length; j++ )
+		                    this.constraints[j].constrain();
+			        }
+                }
+            ]]>
+        </method>
+        <method id="applyForce" params="force, pt, friction">
+            <![CDATA[
+                for( var j = 0; j < this.points.length; j++ )
+                    this.points[j].force.add( force );
+            ]]>
+        </method>
+        <method id="setForce" params="force">
+            <![CDATA[
+                for( var j = 0; j < this.points.length; j++ )
+                    this.points[j].force.set( force );
+            ]]>
+        </method>
+        <method id="draw" params="ctx, scale, env">
+            <![CDATA[
+                if( env.surfacesVisible )
+                {
+                    for( var j = 0; j < this.surfaces.length; j++ )
+                        this.surfaces[j].draw( ctx, scale, env, this )
+                }
+                
+                if( env.constraintsVisible )
+                {
+                    for( var j = 0; j < this.constraints.length; j++ )
+                        this.constraints[j].draw( ctx, scale, env )
+                }
+
+                if( env.pointsVisible )
+                {
+                    for( var j = 0; j < this.points.length; j++ )
+                        this.points[j].draw( ctx, scale, env )
+                }
+            ]]>
+        </method>
+        <method id="findClosestPointMass" params="pt">
+            <![CDATA[
+			    var selectedPointMass = null;
+			    var min = null;
+			    
+                for( var j = 0; j < this.points.length; j++ )
+                {
+                    var dist = pt.distance( this.points[j].position );
+                    
+                    if( selectedPointMass == null || dist < min )
+                    {
+                        selectedPointMass = this.points[j];
+                        min = dist;
+                    }
+                }
+                
+                return selectedPointMass;
+            ]]>
+        </method>
+        <method id="calculateBoundingBox">
+            <![CDATA[
+                var min = Vector.newInstance();
+                var max = Vector.newInstance();
+                
+                for( var j = 0; j < this.points.length; j++ )
+                {
+                    if( j == 0 )
+                     {
+                        min.x = max.x = this.points[j].x
+                        min.y = min.y = this.points[j].y;
+                    }
+                    else
+                    {
+	                    if( this.points[j].x < min.x )
+	                        min.x = this.points[j].x;
+	                        
+	                    if( this.points[j].y < min.y )
+	                        min.y = this.points[j].y;
+	                        
+	                    if( this.points[j].x > max.x )
+	                        max.x = this.points[j].x;
+	                        
+	                    if( this.points[j].y > max.y )
+	                        max.y = this.points[j].y;
+                    }
+                }
+                
+                return { x:min.x, y:min.y, width:max.x - min.x, height:max.y - min.y };
+            ]]>
+        </method>
+        <method id="calculateCenter">
+            <![CDATA[
+                var boundingBox = this.calculateBoundingBox();
+                
+                return Vector.newInstance( boundingBox.x + (boundingBox.width / 2), boundingBox.y + (boundingBox.height / 2) );
+            ]]>
+        </method>
+        <method id="save">
+            <![CDATA[
+                var data = new Object();
+                
+                if( this.points.length > 0 )
+                {
+                    data.points = new Array();
+                
+                    for( var j = 0; j < this.points.length; j++ )
+                        data.points.push( this.points[j].save() );
+                }
+                
+                if( this.constraints.length > 0 )
+                {
+                    data.constraints = new Array();
+
+                    for( var j = 0; j < this.constraints.length; j++ )
+                        data.constraints.push( this.constraints[j].save() );
+                }
+                
+                if( this.surfaces.length > 0 )
+                {
+                    data.surfaces = new Array();
+
+                    for( var j = 0; j < this.surfaces.length; j++ )
+                        data.surfaces.push( this.surfaces[j].save() );
+                }
+                
+                return data;
+            ]]>
+        </method>
+        <method id="load" params="data, dx, dy">
+            <![CDATA[
+                var startId = 0;
+            
+                if( "points" in data )
+                    startId = this.loadPoints( data.points, dx, dy );
+                    
+                if( "constraints" in data )
+                    this.loadConstraints( data.constraints, startId );
+                    
+                if( "surfaces" in data )
+                    this.loadSurfaces( data.surfaces, startId );
+            ]]>
+        </method>
+        <method id="loadPoints" params="points, dx, dy">
+            <![CDATA[
+                var startId = this.nextId;
+                
+                if( dx == null )
+                    dx = 0;
+                    
+                if( dy == null )
+                    dy = 0;
+            
+                for( var j = 0; j < points.length; j++ ) 
+                {
+                    var id = "id" in points[j] ? points[j].id + startId : this.nextId;
+                
+                    this.points.push( PointMass.newInstance( points[j].x + dx, points[j].y + dy, "mass" in points[j] ? points[j].mass : null, id ) );
+                    
+                    if( id >= this.nextId )
+                        this.nextId = id + 1;
+                }
+                
+                return startId;
+            ]]>
+        </method>
+        <method id="loadConstraints" params="constraints, startId">
+            <![CDATA[
+                for( var j = 0; j < constraints.length; j++ )
+                {
+                    var p1 = this.getPointById( constraints[j].p1 + startId );
+                    var p2 = this.getPointById( constraints[j].p2 + startId );
+                    
+                    if( p1 != null && p2 != null )
+                    {
+                        var constraint = null;
+                        
+                        if( "type" in constraints[j] == false || constraints[j].type == Constraint.STICK )
+                            constraint = new Constraint.Stick( p1, p2 );
+                            
+                        else if( constraints[j].type == Constraint.ELASTIC )
+                            constraint = new Constraint.Elastic( p1, p2, constraints[j].short, constraints[j].long );
+                        
+                        if( constraint != null )
+                            this.constraints.push( constraint );
+                    }
+                }
+            ]]>
+        </method>
+        <method id="loadSurfaces" params="surfaces, startId">
+            <![CDATA[
+                for( var j = 0; j < surfaces.length; j++ )
+                {
+                    var surface = data.surfaces[j];
+                    var points = new Array();
+                    var renderer = null;
+                    var config = null;
+                    var id = null;
+
+                    if( "points" in surface )
+                    {
+                        for( var i = 0; i < surface.points.length; i++ )
+                        {
+                            var p = this.getPointById( surface.points[i] + startId )
+                        
+                            if( p != null )
+                                points.push( p );
+                        }
+                    }
+                    
+                    if( "renderer" in surface )
+                    {
+                        var rendererComponents = surface.renderer.split( ":" );
+                        
+                        // if only the module is specified then it is expected
+                        // that the rendere module implements a getInstnce function
+                        // to return the renderer singleton...
+                        if( rendererComponents.length == 1 )
+                        {
+                            var module = require( rendererComponents[0] );
+                            
+                            if( "getInstance" in module )
+                                renderer = module.getInstance();
+                        }
+                        
+                        // try to instantiate a new renderer from the specified
+                        // module using the specified class name...
+                        else if( rendererComponents.length == 2 )
+                        {
+                            var module = require( rendererComponents[0] );
+                            
+                            if( rendererComponents[1] in module )
+                                renderer = new module[rendererComponents[1]]();
+                        }
+                        
+                        if( renderer != null && "config" in surface )
+                        {
+                            config = renderer.createDefaultConfiguration();
+                            config.load( surface.config );
+                        }
+                    }
+                    
+                    this.surfaces.push( Surface.newInstance( points, renderer, config, id ) );
+                }
+            ]]>
+        </method>
+    </class>
+    
+    <variable id="prototype" value="Model.prototype" />
+    
+</module>

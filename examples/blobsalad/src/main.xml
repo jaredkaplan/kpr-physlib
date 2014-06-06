@@ -1,0 +1,108 @@
+<!--
+  Copyright 2011-2014 Marvell Semiconductor, Inc.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<program xmlns="http://www.kinoma.com/kpr/1">
+
+    <require id="Vector" path="Vector"/>
+    <require id="Environment" path="Environment"/>
+    <require id="Blob" path="Blob" />
+    <require id="Scene" path="Scene" />
+    <require id="Interaction" path="Interaction" />
+ 
+    <behavior id="BlobCanvasBehavior" like="Scene.CanvasBehavior">
+        <field id="selectedBlob"/>
+        <field id="selectedBlobOffset"/>
+
+        <method id="startSimulation" params="content">
+            <![CDATA[
+                // setup the interaction behavior
+                this.setInteractionBehavior( content, new BlobInteractionBehavior() );
+            
+                //
+                // create initial blob
+                //
+                var dim = (Math.min( content.width, content.height ) / this.scale) / 2 ;
+                var max = dim * 0.75;
+                var min =  dim * 0.25;
+                var blob = Blob.newInstance( Math.random() * (max - min) + min );
+
+                // add the blob model to the scene
+                this.addModel( content, blob, Vector.newInstance( ((Math.random() * content.width) / this.scale) - blob.middle.x, ((Math.random() * (content.height / 2)) / this.scale) - blob.middle.y ) );
+            
+                // call the inherited startSimulation method
+                Scene.CanvasBehavior.prototype.startSimulation.call( this, content );
+            ]]>
+        </method>
+    </behavior>
+    
+    <class id="BlobInteractionBehavior" like="Interaction.DefaultDragInteractionBehavior">
+        <method id="handleTouchBackground" params="content, id, pt, ticks">
+            <![CDATA[
+                var scale = content.delegate( "getScale" );
+                var dim = (Math.min( content.width, content.height ) / scale) / 2 ;
+                var max = dim * 0.75;
+                var min =  dim * 0.25;
+                var blob = Blob.newInstance( Math.random() * (max - min) + min );
+                var modelList = content.delegate( "getModels" );
+                         
+                // iterate through all of the blobs in the model list and create constraints
+                // for the newly added blob
+                for( var j = 0; j < modelList.length; j++ )
+                    modelList[j].addBlobConstraints( blob );
+                
+                content.delegate( "addModel", blob, Vector.newInstance( pt.x - blob.middle.x, pt.y - blob.middle.y ) );
+            ]]>
+        </method>
+    </class>
+
+    <container id="MainContainer" left="0" top="0" right="0" bottom="0">
+        <skin color="white"/>
+        <canvas name="pointMassCanvas" left="0" top="0" right="0" bottom="0" active="true" behavior="BlobCanvasBehavior"/>
+        <label top="10" left="10" string="'R E S E T'" active="true">
+            <style font="16px Arial Bold" color="#3F7F7F7F"/>
+            <behavior>
+                <method id="onTouchBegan" params="content, id, x, y, ticks">
+                    <![CDATA[
+                        mainContainer.distribute( "clear" );
+                    ]]>
+                </method>
+            </behavior>
+        </label>
+        <label top="10" right="10" string="'G R A V I T Y  O N'" active="true">
+            <style font="16px Arial Bold" color="#3F7F7F7F"/>
+            <behavior>
+                <field id="gravity" value="true" />
+                <method id="onTouchBegan" params="content, id, x, y, ticks">
+                    <![CDATA[
+                        this.gravity = this.gravity ? false : true;
+                    
+                        content.string = "G R A V I T Y  " + (this.gravity ? "O N" : "O F F");
+                        
+                        mainContainer.distribute( "setGravity", this.gravity ? 1 : 0 );
+                    ]]>
+                </method>
+            </behavior>
+        </label>
+    </container>
+    
+    <script>
+        <![CDATA[
+            var config = new Scene.SceneConfiguration( 100, Vector.newInstance( 0, 1.0 ), null, null, false, false, true );
+            var mainContainer = new MainContainer( {config:config} );
+        
+            application.add( mainContainer );
+        ]]>
+    </script>
+</program>

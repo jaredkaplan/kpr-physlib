@@ -1,0 +1,103 @@
+<!--
+  Copyright 2011-2014 Marvell Semiconductor, Inc.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<module xmlns="http://www.kinoma.com/kpr/1">
+
+    <require id="Constraint" path="Constraint" />
+    <require id="Vector" path="Vector" />
+
+    <class id="InteractionBehavior">
+        <method id="handleTouchBegan" params="content, id, pt, ticks">
+            <![CDATA[
+            ]]>
+        </method>
+        <method id="handleTouchMoved" params="content, id, pt, ticks">
+            <![CDATA[
+            ]]>
+        </method>
+        <method id="handleTouchEnded" params="content, id, pt, ticks">
+            <![CDATA[
+            ]]>
+        </method>
+    </class>
+    
+    <class id="DefaultSelectionInteractionBehavior" like="InteractionBehavior">
+        <method id="handleTouchBegan" params="content, id, pt, ticks">
+            <![CDATA[
+                var model = content.delegate( "findModel", pt );
+            
+                if( model != null )
+                    this.handleSelectModel( content, model, id, pt, ticks );
+                else
+                    this.handleTouchBackground( content, id, pt, ticks );
+            ]]>
+        </method>
+        <method id="handleSelectModel" params="content, model, id, pt, ticks" />
+        <method id="handleTouchBackground" params="content, id, pt, ticks" />
+    </class>
+    
+    <class id="DefaultDragInteractionBehavior" like="DefaultSelectionInteractionBehavior">
+        <field id="model" />
+        <field id="anchor" />
+        <field id="temporary" />
+        <field id="savedAnchorState" />
+        <field id="offset" />
+        
+        <method id="handleSelectModel" params="content, model, id, pt, ticks">
+            <![CDATA[
+                this.model = model;
+                this.anchor = model.getAnchor();
+                this.temporary = this.anchor == null;
+                
+                if( this.temporary )
+                {
+                    this.anchor = model.addPoint( pt.x, pt.y, 0 );
+                
+                    // add constraints to model for the anchor point
+                    for( var j = 0; j < model.points.length; j++ )
+                    {
+                        if( this.anchor != model.points[j] )
+                           model.addConstraint( new Constraint.Stick( this.anchor, model.points[j] ) );
+                    }
+                }
+                    
+                this.savedAnchorState = this.anchor.anchor;
+                this.anchor.anchor = true;
+                this.offset = Vector.newInstance( pt.x - this.anchor.x, pt.y - this.anchor.y );
+            ]]>
+        </method>
+        <method id="handleTouchMoved" params="content, id, pt, ticks">
+            <![CDATA[
+                if( this.anchor != null )
+                    this.anchor.setPosition( pt.x - this.offset.x, pt.y - this.offset.y );
+            ]]>
+        </method>
+        <method id="handleTouchEnded" params="content, id, pt, ticks">
+            <![CDATA[
+                if( this.anchor != null ) 
+                {
+                    if( this.temporary )
+                        this.model.removePoint( this.anchor );
+                    else
+                        this.anchor.anchor = this.savedAnchorState;
+                        
+                    this.model = null;
+                    this.anchor = null;
+                }
+            ]]>
+        </method>
+    </class>
+
+</module>

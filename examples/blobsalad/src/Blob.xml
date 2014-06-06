@@ -1,0 +1,318 @@
+<!--
+  Copyright 2011-2014 Marvell Semiconductor, Inc.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<module xmlns="http://www.kinoma.com/kpr/1">
+
+    <require id="Model" path="Model" />
+    <require id="Vector" path="Vector" />
+    <require id="PointMass" path="PointMass" />
+    <require id="Constraint" path="Constraint" />
+    <require id="Surface" path="Surface" />
+    <require id="DefaultSurfaceRenderer" path="DefaultSurfaceRenderer" />
+
+    <function id="newInstance" params="radius">
+        <![CDATA[
+            return new Blob( radius );
+        ]]>
+    </function>
+
+    <function id="clampIndex" params="index, maxIndex">
+        <![CDATA[
+            index += maxIndex; 
+            
+            return index % maxIndex; 
+        ]]>
+    </function>
+
+    <class id="Blob" like="Model">
+        <field id="middle" />
+        <field id="radius" />
+        <field id="faceStyle" />
+        <field id="eyeStyle" />
+        <field id="earStyle" />
+        <field id="color" />
+        <field id="numPoints" value="8" />
+        
+        <constructor params="radius">
+            <![CDATA[
+                Model.Model.call( this );
+
+                this.create( radius );
+            ]]>
+        </constructor>
+        <method id="create" params="radius, color">
+            <![CDATA[
+                this.clear();
+                this.radius = radius != null ? radius : 0.25 + (Math.random() * 1.5); 
+                this.faceStyle = 1; 
+                this.eyeStyle = 1; 
+                this.earStyle = Math.round( Math.random() );
+                this.color = color != null ? color : "#" + (Math.random() * 0xFFFFFF).toString( 16 );
+
+                var mass = this.radius / 0.75;
+
+                for( var j = 0, t = 0.0; j < this.numPoints; j++ )
+                {
+                    this.addPoint( Math.cos( t ) * this.radius + this.radius, Math.sin( t ) * this.radius + this.radius, 1.0 );
+                    
+                    t += 2.0 * Math.PI / this.numPoints; 
+                }
+                
+                // create the middle point and add it to the model
+                this.middle = PointMass.newInstance( this.radius, this.radius, 1 * mass );
+                this.addPointMass( this.middle );
+                
+                // set the bottom points mass property to be heavier than the rest
+                // so that the blog tries to stay upright...
+                this.points[0].mass = 4.0 * mass;
+                this.points[1].mass = 4.0 * mass;
+                
+                // elastic constraints constants
+                var high = 1.05;
+                var low = 0.95; 
+                
+                // iterate through the points and create rigid constraints around
+                // the border of the blob
+                for( j = 0; j < this.numPoints; j++ ) {
+                    var idx = clampIndex( j + 1, this.numPoints )
+                    this.addConstraint( new Constraint.Stick( this.points[j], this.points[idx] ) );
+                }
+                
+                // iterate through the points and add elastic constraints that go
+                // from points accross from each other in the blob, and from each
+                // point to the blob's middle point mass
+                for( j = 0; j < this.numPoints; j++ )
+                {
+                    var idx = clampIndex( j + this.numPoints / 2 + 1, this.numPoints )
+                
+                    this.addConstraint( new Constraint.Elastic( this.points[j], this.points[idx], high * 0.9, low * 1.1 ) );
+                    this.addConstraint( new Constraint.Elastic( this.points[j], this.middle, high * 0.9, low * 1.1 ) );
+                }
+                
+                // create the blob surface renderer
+                var pts = this.points.slice( 0, this.numPoints );
+                var config = new DefaultSurfaceRenderer.DefaultSurfaceConfiguration( DefaultSurfaceRenderer.CURVE, {width:2,color:"black"}, {color:this.color} );
+                
+                this.addSurface( Surface.newInstance( pts, getBlobRendererInstance(), config ) );
+            ]]>
+        </method>
+        <method id="getAnchor">
+            <![CDATA[
+                return this.middle;
+            ]]>
+        </method>
+        <method id="setRadius" params="radius">
+            <![CDATA[
+                this.create( this.middle.position.x, this.middle.position.y, radius, this.color );
+            ]]>
+        </method>
+        <method id="addBlobConstraints" params="blob">
+            <![CDATA[
+                var dist = this.radius + blob.radius; 
+		        var constraint = new Constraint.Elastic( this.middle, blob.middle, 0, 0 );
+		        
+		        constraint.setConstraints( dist * 0.95, 0.0 );
+		        
+		        this.addConstraint( constraint );
+            ]]>
+        </method>
+    </class>
+    
+    <variable id="blobRendererInstance" />
+    
+    <function id="getBlobRendererInstance">
+        <![CDATA[
+            if( blobRendererInstance == null )
+                blobRendererInstance = new BlobSurfaceRenderer();
+                
+            return blobRendererInstance;
+        ]]>
+    </function>
+    
+    <class id="BlobSurfaceRenderer" like="DefaultSurfaceRenderer">
+        <constructor>
+            <![CDATA[
+                DefaultSurfaceRenderer.DefaultSurfaceRenderer.call( this );
+                
+                this.faceStyle = 1; 
+                this.eyeStyle = 1; 
+                this.earStyle = Math.round( Math.random() );
+            ]]>
+        </constructor>
+        <method id="draw" params="ctx, scale, env, model, pts, config">
+            <![CDATA[
+                DefaultSurfaceRenderer.prototype.draw.call( this, ctx, scale, env, model, pts, config );
+            
+                //
+                // draw the blob face
+                //
+                ctx.save();
+                ctx.translate( model.middle.position.x * scale, (model.middle.position.y - 0.35 * model.radius) * scale); 
+              
+                var up = Vector.newInstance( 0.0, -1.0 ); 
+                var origin = Vector.newInstance( 0.0, 0.0 ); 
+                
+                origin.set( model.points[0].position ); 
+                origin.sub( model.middle.position ); 
+                
+                var ang = Math.acos( origin.dotProd( up ) / origin.length() );
+                
+                ctx.rotate( origin.x < 0.0 ? -ang : ang );  
+
+                if( model.faceStyle == 1 && Math.random() < 0.05 )
+                    model.faceStyle = 2;
+                
+                else if( model.faceStyle == 2 && Math.random() < 0.1 )
+                    model.faceStyle = 1;
+
+                if( model.eyeStyle == 1 && Math.random() < 0.025 )
+                    model.eyeStyle = 2;
+                    
+                else if( model.eyeStyle == 2 && Math.random() < 0.3 )
+                    model.eyeStyle = 1;
+                    
+                if( model.middle.getVelocity() > 0.004 )
+                    this.drawOohFace( ctx, scale, env, model );     
+                else
+                {
+                    if( model.faceStyle == 1 )
+                        this.drawHappyFace1( ctx, scale, env, model ); 
+                    else
+                        this.drawHappyFace2( ctx, scale, env, model );
+                        
+                    if( model.eyeStyle == 1 )
+                        this.drawHappyEyes1( ctx, scale, env, model );
+                    else
+                        this.drawHappyEyes2( ctx, scale, env, model );
+                }
+                ctx.restore();
+            ]]>
+        </method>
+        <method id="drawOohFace" params="ctx, scale, env, model">
+            <![CDATA[
+                ctx.lineWidth = 2; 
+                ctx.strokeStyle = "#000000";
+                ctx.fillStyle = "#000000";
+                ctx.beginPath(); 
+                ctx.arc( 0.0, (0.1 * model.radius) * scale, model.radius * 0.25 * scale, 0, Math.PI, false );
+              
+                ctx.fill();  
+                ctx.beginPath();
+        
+                ctx.moveTo( (-0.25 * model.radius) * scale, (-0.3 * model.radius) * scale );
+                ctx.lineTo( (-0.05 * model.radius) * scale, (-0.2 * model.radius) * scale );
+                ctx.lineTo( (-0.25 * model.radius) * scale, (-0.1 * model.radius) * scale );
+        
+                ctx.moveTo( (0.25 * model.radius) * scale, (-0.3 * model.radius) * scale );
+                ctx.lineTo( (0.05 * model.radius) * scale, (-0.2 * model.radius) * scale );
+                ctx.lineTo( (0.25 * model.radius) * scale, (-0.1 * model.radius) * scale );
+         
+                ctx.stroke();           
+            ]]>
+        </method>
+        <method id="drawHappyFace1" params="ctx, scale, env, model">
+            <![CDATA[
+                ctx.lineWidth = 2; 
+                ctx.strokeStyle = "#000000";
+                ctx.fillStyle = "#000000";
+                ctx.beginPath(); 
+                ctx.arc( 0.0, 0.0, model.radius * 0.25 * scale, 0, Math.PI, false );
+                
+                ctx.stroke();
+            ]]>
+        </method>
+        <method id="drawHappyFace2" params="ctx, scale, env, model">
+            <![CDATA[
+                ctx.lineWidth = 2; 
+                ctx.strokeStyle = "#000000";
+                ctx.fillStyle = "#000000";
+                ctx.beginPath(); 
+                ctx.arc( 0.0, 0.0, model.radius * 0.25 * scale, 0, Math.PI, false );
+                ctx.fill();  
+            ]]>
+        </method>
+        <method id="drawHappyEyes1" params="ctx, scale, env, model">
+            <![CDATA[
+                ctx.lineWidth = 1; 
+                ctx.fillStyle = "#FFFFFF";
+                ctx.beginPath(); 
+                ctx.arc( (-0.15 * model.radius) * scale, (-0.20 * model.radius) * scale, 
+                                                model.radius * 0.12 * scale, 0, 2.0 * Math.PI, false );
+                ctx.fill(); 
+                ctx.stroke();  
+
+                ctx.beginPath(); 
+                ctx.arc( (0.15 * model.radius) * scale, (-0.20 * model.radius) * scale, model.radius * 0.12 * scale, 0, 2.0 * Math.PI, false );
+                ctx.fill(); 
+                ctx.stroke();          
+
+                ctx.fillStyle = "#000000";
+                ctx.beginPath(); 
+                ctx.arc( (-0.15 * model.radius) * scale, (-0.17 * model.radius) * scale, model.radius * 0.06 * scale, 0, 2.0 * Math.PI, false );
+                ctx.fill();  
+
+                ctx.beginPath(); 
+                ctx.arc( (0.15 * model.radius) * scale, (-0.17 * model.radius) * scale, model.radius * 0.06 * scale, 0, 2.0 * Math.PI, false );
+                ctx.fill();  
+            ]]>
+        </method>
+        <method id="drawHappyEyes2" params="ctx, scale, env, model">
+            <![CDATA[
+                ctx.lineWidth = 1; 
+                ctx.fillStyle = "#FFFFFF";
+                ctx.beginPath(); 
+                ctx.arc( (-0.15 * model.radius) * scale, (-0.20 * model.radius) * scale, model.radius * 0.12 * scale, 0, 2.0 * Math.PI, false );
+                ctx.stroke();  
+
+                ctx.beginPath(); 
+                ctx.arc( (0.15 * model.radius) * scale, (-0.20 * model.radius) * scale, model.radius * 0.12 * scale, 0, 2.0 * Math.PI, false );
+                ctx.stroke();          
+
+                ctx.lineWidth = 1;       
+                ctx.beginPath(); 
+                ctx.moveTo( (-0.25   * model.radius) * scale, (-0.20 * model.radius) * scale ); 
+                ctx.lineTo( (-0.05 * model.radius) * scale, (-0.20 * model.radius) * scale ); 
+                ctx.stroke();  
+
+                ctx.beginPath(); 
+                ctx.moveTo( (0.25   * model.radius) * scale, (-0.20 * model.radius) * scale ); 
+                ctx.lineTo( (0.05 * model.radius) * scale, (-0.20 * model.radius) * scale ); 
+                ctx.stroke();  
+            ]]>
+        </method>
+        <method id="drawEars" params="ctx, scale, env, model">
+            <![CDATA[
+                ctx.strokeStyle = "#000000"; 
+                ctx.fillStyle = "#FFFFFF"; 
+                ctx.lineWidth = 2; 
+        
+                ctx.beginPath(); 
+                ctx.moveTo((-0.55 * model.radius) * scale, (-0.35 * model.radius) * scale);
+                ctx.lineTo((-0.52 * model.radius) * scale, (-0.55 * model.radius) * scale);
+                ctx.lineTo((-0.45 * model.radius) * scale, (-0.40 * model.radius) * scale);
+                ctx.fill(); 
+                ctx.stroke(); 
+              
+                ctx.beginPath(); 
+                ctx.moveTo((0.55 * model.radius) * scale, (-0.35 * model.radius) * scale);
+                ctx.lineTo((0.52 * model.radius) * scale, (-0.55 * model.radius) * scale);
+                ctx.lineTo((0.45 * model.radius) * scale, (-0.40 * model.radius) * scale);
+                ctx.fill(); 
+                ctx.stroke(); 
+            ]]>
+        </method>
+    </class>
+
+</module>

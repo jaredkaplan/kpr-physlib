@@ -1,0 +1,239 @@
+<!--
+  Copyright 2011-2014 Marvell Semiconductor, Inc.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<module xmlns="http://www.kinoma.com/kpr/1">
+
+    <require id="Environment" path="Environment" />
+    <require id="Vector" path="Vector" />
+    <require id="Interaction" path="Interaction" />
+
+    <class id="SceneConfiguration">
+        <field id="scale" />
+        <field id="gravity" />
+        <field id="modelList" />
+        <field id="backgroundColor" />
+        <field id="showPoints" />
+        <field id="showConstraints" />
+        <field id="showSurfaces" />
+        <constructor params="scale, gravity, modelList, backgroundColor, showPoints, showConstraints, showSurfaces">
+            <![CDATA[
+                this.scale = scale || 100;
+                this.gravity = gravity || { x:0, y:1.0 };
+                this.modelList = modelList || [];
+                this.backgroundColor = backgroundColor;
+                this.showPoints = showPoints != null ? showPoints : false;
+                this.showConstraints = showConstraints != null ? showConstraints : false;
+                this.showSurfaces = showSurfaces != null ? showSurfaces : true;
+            ]]>
+        </constructor>
+    </class>
+
+    <behavior id="CanvasBehavior">
+        <field id="lastTime"/>
+        <field id="environment"/>
+        <field id="modelList"/>
+        <field id="gravity"/>
+        <field id="scale"/>
+        <field id="backgroundColor"/>
+        <field id="interactionBehabior" />
+        
+        <method id="onCreate" params="content, data">
+            <![CDATA[
+                var config = data != null && "config" in data && data.config instanceof SceneConfiguration ? data.config : new SceneConfiguration();
+            
+                // initialize the canvas behavior
+                this.scale = config.scale; 
+                this.modelList = config.modelList;
+                this.gravity = Vector.newInstance( config.gravity.x, config.gravity.y ); 
+                this.backgroundColor = config.backgroundColor;
+                this.environment = Environment.newInstance( content.width / this.scale, content.height / this.scale );
+                this.environment.pointsVisible = config.showPoints;
+                this.environment.constraintsVisible = config.showConstraints;
+                this.environment.surfacesVisible = config.showSurfaces;
+                this.lastTime = 0;
+            ]]>
+        </method>
+        <method id="clear" params="content">
+            <![CDATA[
+                this.modelList = new Array();
+            ]]>
+        </method>
+        <method id="getScale">
+            <![CDATA[
+                return this.scale;
+            ]]>
+        </method>
+        <method id="getModels">
+            <![CDATA[
+                return this.modelList.slice();
+            ]]>
+        </method>
+        <method id="addModel" params="content, model, pt">
+            <![CDATA[
+                // offset the model by the specified position
+                if( pt != null )
+                    model.offset( pt );
+            
+                // add the model to the model list
+                this.modelList.push( model );
+            ]]>
+        </method>
+        <method id="addForce" params="content, force">
+            <![CDATA[
+                for( var j = 0; j < this.modelList.length; j++ )
+                    this.modelList[j].addForce( force );
+            ]]>
+        </method>
+        <method id="setGravity" params="content, gravity">
+            <![CDATA[
+                this.gravity.y = gravity;
+            ]]>
+        </method>
+        <method id="setInteractionBehavior" params="content, interactionBehavior">
+            <![CDATA[
+                this.interactionBehavior = interactionBehavior instanceof Interaction.InteractionBehavior ? interactionBehavior : null;
+            ]]>
+        </method>
+        <method id="resetEnvironment" params="content">
+            <![CDATA[
+                this.environment.width = content.width / this.scale;
+                this.environment.height = content.height / this.scale;
+            ]]>
+        </method>
+        <method id="findModel" params="content, pt">
+            <![CDATA[
+                var model = null;
+            
+                for( var j = this.modelList.length - 1; j >= 0; j-- )
+                {
+                    if( this.modelList[j].contains( pt.x, pt.y ) ) {
+                        model = this.modelList[j];
+                        break;
+                    }
+                }
+                
+                return model;
+            ]]>
+        </method>
+        <method id="startSimulation" params="content">
+            <![CDATA[
+                content.interval = 0;
+                content.start();
+            ]]>
+        </method>
+        <method id="stopSimulation" params="content">
+            <![CDATA[
+                content.stop();
+                
+                // force immediate update
+                this.draw( content );
+            ]]>
+        </method>
+        <method id="adjustScale" params="content, scale">
+            <![CDATA[
+                this.scale *= scale;
+                
+                // reset the environment
+                this.resetEnvironment( content );
+                
+                // force immediate update
+                this.draw( content );
+            ]]>
+        </method>
+        <method id="onDisplaying" params="content">
+            <![CDATA[
+                this.resetEnvironment( content );
+                this.draw( content );
+            ]]>
+        </method>
+        <method id="onDisplayed" params="content">
+            <![CDATA[
+                this.startSimulation( content );
+            ]]>
+        </method>
+        <method id="onAdapt" params="content">
+            <![CDATA[
+                this.resetEnvironment( content );
+                this.draw( content );
+            ]]>
+        </method>
+        <method id="onTimeChanged" params="content">
+            <![CDATA[
+                var t = content.time;
+                var delta = (t - this.lastTime) / 1000;
+                
+                this.update( content );
+                this.draw( content );
+                this.lastTime = t;
+            ]]>
+        </method>
+        <method id="update" params="content">
+            <![CDATA[
+                var dt = .05; 
+                
+                for( var j = 0; j < this.modelList.length; j++ )
+                {
+                    this.modelList[j].update( dt ); 
+                    this.modelList[j].constrain( this.environment ); 
+                    this.modelList[j].setForce( this.gravity ); 
+                }
+            ]]>
+        </method>
+        <method id="draw" params="content">
+            <![CDATA[
+                var ctx = content.getContext( "2d" );
+                
+                if( this.backgroundColor != null )
+                {
+					ctx.fillStyle = this.backgroundColor;
+					ctx.fillRect( 0, 0, content.width, content.height );
+                }
+                else
+                    ctx.clearRect( 0, 0, content.width, content.height ); 
+                
+                for( var j = 0; j < this.modelList.length; j++ )
+                {
+                    ctx.save();
+                    this.modelList[j].draw( ctx, this.scale, this.environment );
+                    ctx.restore();
+                }
+            ]]>
+        </method>
+        <method id="onTouchBegan" params="content, id, x, y, ticks">
+            <![CDATA[
+                if( this.interactionBehavior != null )
+                    this.interactionBehavior.handleTouchBegan( content, id, this.convertCanvasToSceneCoordinates( content, x, y ), ticks );
+            ]]>
+        </method>
+        <method id="onTouchMoved" params="content, id, x, y, ticks">
+            <![CDATA[
+                if( this.interactionBehavior != null )
+                    this.interactionBehavior.handleTouchMoved( content, id, this.convertCanvasToSceneCoordinates( content, x, y ), ticks );
+            ]]>
+        </method>
+        <method id="onTouchEnded" params="content, id, x, y, ticks">
+            <![CDATA[
+                if( this.interactionBehavior != null )
+                    this.interactionBehavior.handleTouchEnded( content, id, this.convertCanvasToSceneCoordinates( content, x, y ), ticks );
+            ]]>
+        </method>
+        <method id="convertCanvasToSceneCoordinates" params="content, x, y">
+            <![CDATA[
+                return Vector.newInstance( (x - content.container.x) / this.scale, (y - content.container.y) / this.scale );
+            ]]>
+        </method>
+    </behavior>
+
+</module>

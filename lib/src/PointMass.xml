@@ -1,0 +1,136 @@
+<!--
+  Copyright 2011-2014 Marvell Semiconductor, Inc.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<module xmlns="http://www.kinoma.com/kpr/1">
+
+    <require id="Vector" path="Vector"/>
+
+    <variable id="NONE" value="'none'"/>
+    <variable id="SELECTED" value="'selected'"/>
+    <variable id="HIGHLIGHTED" value="'highlighted'"/>
+    
+    <function id="newInstance" params="x, y, mass, id">
+        <![CDATA[
+            return new PointMass( x, y, mass, id );
+        ]]>
+    </function>
+    
+    <class id="PointMass">
+        <field id="id"/>
+        <field id="position"/>
+        <field id="previousPosition"/>
+        <field id="mass"/>
+        <field id="force"/>
+        <field id="friction"/>
+        <field id="selection"/>
+        <field id="anchor"/>
+        
+        <constructor params="x, y, mass, id">
+            <![CDATA[
+                this.id = id;
+                this.position = Vector.newInstance( x, y );
+                this.previousPosition = Vector.newInstance( x, y );
+                this.mass = mass || 1.0;
+                this.force = Vector.newInstance();
+                this.friction = 0.01;
+                this.selection = NONE;
+                this.anchor = false;
+            ]]>
+        </constructor>
+        <getter id="x">
+            <![CDATA[
+                return this.position.x;
+            ]]>
+        </getter>
+        <getter id="y">
+            <![CDATA[
+                return this.position.y;
+            ]]>
+        </getter>
+        <method id="setPosition" params="x, y">
+            <![CDATA[
+                this.position = Vector.newInstance( x, y );
+                this.previousPosition = Vector.newInstance( x, y );
+            ]]>
+        </method>
+        <method id="update" params="dt">
+            <![CDATA[
+                if( this.anchor == false )
+                {
+	                var a = this.force.x / this.mass;
+	                var c = this.position.x;
+	                var dtdt = dt * dt;
+	                var t = (2.0 - this.friction) * c - (1.0 - this.friction) * this.previousPosition.x + a * dtdt;
+	                
+	                this.previousPosition.x = c;
+	                this.position.x = t;
+	                
+	                a = this.force.y / this.mass;
+	                c = this.position.y; 
+	                t = (2.0 - this.friction) * c - (1.0 - this.friction) * this.previousPosition.y + a * dtdt;
+	                
+	                this.previousPosition.y = c;
+	                this.position.y = t;
+	           }
+            ]]>
+        </method>
+        <method id="getVelocity">
+            <![CDATA[
+                var vx = this.position.x - this.previousPosition.x; 
+                var vy = this.position.y - this.previousPosition.y;
+                
+                return (vx * vx) + (vy * vy);  
+            ]]>
+        </method>
+        <method id="setSelectionState" params="state">
+            <![CDATA[
+                this.selection = state;
+            ]]>
+        </method>
+        <method id="draw" params="ctx, scale, env">
+            <![CDATA[
+                ctx.lineWidth = 2; 
+                ctx.fillStyle = '#000000'; 
+                ctx.strokeStyle = '#000000'; 
+                ctx.beginPath(); 
+                ctx.arc( this.position.x * scale, this.position.y * scale, 4.0, 0.0, Math.PI * 2.0, true ); 
+                ctx.fill(); 
+                
+                if( this.selection == SELECTED || this.selection == HIGHLIGHTED )
+                {
+                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = this.selection == SELECTED ? "#ff0000" : "#afafaf";
+                    ctx.beginPath();
+                    ctx.arc( this.position.x * scale, this.position.y * scale, 8.0, 0.0, Math.PI * 2.0, true);
+                    ctx.stroke();
+                }
+            ]]>
+        </method>
+        <method id="save">
+            <![CDATA[
+                var data = new Object();
+                
+                data.id = this.id;
+                data.x = parseFloat( this.position.x.toFixed( 2 ) );
+                data.y = parseFloat( this.position.y.toFixed( 2 ) );
+                data.mass = this.mass;
+                data.anchor = this.anchor;
+                
+                return data;
+            ]]>
+        </method>
+    </class>
+
+</module>

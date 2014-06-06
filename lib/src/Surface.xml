@@ -1,0 +1,118 @@
+<!--
+  Copyright 2011-2014 Marvell Semiconductor, Inc.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<module xmlns="http://www.kinoma.com/kpr/1">
+
+    <variable id="NONE" value="'none'"/>
+    <variable id="SELECTED" value="'selected'"/>
+    <variable id="HIGHLIGHTED" value="'highlighted'"/>
+    
+    <function id="newInstance" params="pts, renderer, config, id">
+        <![CDATA[
+            return new Surface( pts, renderer, config, id );
+        ]]>
+    </function>
+    
+    <class id="SurfaceConfiguration">
+    </class>
+    
+    <class id="Surface">
+        <field id="id"/>
+        <field id="points"/>
+        <field id="config"/>
+        <field id="selection"/>
+        <field id="renderer"/>
+        <constructor params="pts, renderer, config, id">
+            <![CDATA[
+                this.points = pts != null ? pts.slice() : new Array();
+                this.renderer = renderer;
+                this.config = config || renderer.createDefaultConfiguration();
+                this.id = id;
+                this.selection = NONE;
+            ]]>
+        </constructor>
+        <method id="setSelectionState" params="state">
+            <![CDATA[
+                this.selection = state;
+            ]]>
+        </method>
+        <method id="contains" params="x, y">
+            <![CDATA[
+                var inside = false;
+                var pts = this.points;
+                
+				for( var i = 0, j = pts.length - 1; i < pts.length; j = i++ ) 
+				{
+				    if( ((pts[i].y > y) != (pts[j].y > y)) && (x < (pts[j].x - pts[i].x) * (y - pts[i].y) / (pts[j].y - pts[i].y) + pts[i].x) )
+				       inside = inside ? false : true;
+				}
+				  
+				return inside;
+            ]]>
+        </method>
+        <method id="intersects" params="pts">
+            <![CDATA[
+                return false;
+            ]]>
+        </method>
+        <method id="removePoint" params="pm">
+            <![CDATA[
+                var newPointList = new Array();
+                
+                for( var j = 0; j < this.points.length; j++ )
+                {
+                   if( this.points[j] != pm )
+                       newPointList.push( this.points[j] );
+                }
+                
+                this.points = newPointList;
+            ]]>
+        </method>
+        <method id="draw" params="ctx, scale, env, model">
+            <![CDATA[
+                this.renderer.draw( ctx, scale, env, model, this.points, this.config );
+            ]]>
+        </method>
+        <method id="save">
+            <![CDATA[
+                var data = new Object();
+                
+                if( this.points.length > 0 )
+                {
+                    data.points = new Array();
+                
+                    for( var j = 0; j < this.points.length; j++ )
+                        data.points.push( this.points[j].id );
+                }
+                
+                data.options = this.config;
+                
+                return data;
+            ]]>
+        </method>
+    </class>
+
+    <class id="Renderer">
+        <method id="createDefaultConfiguration">
+            <![CDATA[
+                return new SurfaceConfiguration();
+            ]]>
+        </method>
+        <method id="draw" params="ctx, scale, env, model, pts, config"/>
+        <method id="save" params="params"/>
+        <method id="load" params="data"/>
+    </class>
+
+</module>
